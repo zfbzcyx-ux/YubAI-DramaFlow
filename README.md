@@ -55,12 +55,6 @@ npm run dist -- --mac     # 仅 macOS
 - Linux: http://39.107.251.193:8000/client/YubAI-DramaFlow-1.0.0.AppImage
 - Windows/macOS: 请从 [Releases](https://github.com/zfbzcyx-ux/YubAI-DramaFlow/releases) 下载
 
-## 管理后台
-
-http://39.107.251.193:8000/admin
-
-账号：`admin` 密码：`admin123`
-
 ## 许可证
 
 MIT
