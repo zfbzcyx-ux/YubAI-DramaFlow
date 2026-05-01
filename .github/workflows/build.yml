@@ -80,6 +80,10 @@ jobs:
           VERSION=${{ github.ref_name }}
           echo "Creating release for $VERSION"
           
+          # List artifact structure first
+          echo "=== Artifact structure ==="
+          find artifacts -type f -name '*.AppImage' -o -type f -name '*.exe' -o -type f -name '*.dmg' | sort
+          
           # Delete existing release if any
           EXISTING=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             "https://api.github.com/repos/${{ github.repository }}/releases" | \
@@ -88,7 +92,7 @@ jobs:
           if [ -n "$EXISTING" ]; then
             echo "Deleting existing release $EXISTING..."
             curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/$EXISTING"
+              "https://api.github.com/repos/${{ github.repository }}/releases/$EXISTING" || true
           fi
           
           # Delete tag ref if exists
@@ -104,37 +108,19 @@ jobs:
           RELEASE_ID=$(echo "$RELEASE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
           echo "Created release ID: $RELEASE_ID"
           
-          # Upload all artifacts - specific paths per platform
-          if [ -f "artifacts/linux-artifact/"*.AppImage ]; then
-            FILE="artifacts/linux-artifact/"*.AppImage
-            curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@$FILE" \
-              "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$(basename $FILE)"
-            echo " ✅ $(basename $FILE)"
-          fi
+          # Upload artifacts - use find to locate them reliably
+          for ext in AppImage exe dmg; do
+            while IFS= read -r file; do
+              if [ -n "$file" ] && [ -f "$file" ]; then
+                echo "Uploading $file..."
+                FILENAME=$(basename "$file")
+                curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                  -H "Content-Type: application/octet-stream" \
+                  --data-binary "@$file" \
+                  "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$FILENAME"
+                echo " ✅ $FILENAME uploaded"
+              fi
+            done < <(find artifacts -type f -name "*.$ext" 2>/dev/null)
+          done
           
-          if [ -f "artifacts/windows-artifact/"*Setup*.exe ]; then
-            FILE="artifacts/windows-artifact/"*Setup*.exe
-            curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@$FILE" \
-              "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$(basename $FILE)"
-            echo " ✅ $(basename $FILE)"
-          elif [ -f "dist/"*Setup*.exe ]; then
-            FILE="dist/"*Setup*.exe
-            curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@$FILE" \
-              "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$(basename $FILE)"
-            echo " ✅ $(basename $FILE)"
-          fi
-          
-          if [ -f "artifacts/macos-artifact/"*.dmg ]; then
-            FILE="artifacts/macos-artifact/"*.dmg
-            curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Content-Type: application/octet-stream" \
-              --data-binary "@$FILE" \
-              "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$(basename $FILE)"
-            echo " ✅ $(basename $FILE)"
-          fi
+          echo "Done!"
