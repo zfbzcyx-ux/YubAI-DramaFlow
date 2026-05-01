@@ -76,51 +76,8 @@ jobs:
         continue-on-error: true
 
       - name: Create GitHub Release
-        run: |
-          VERSION=${{ github.ref_name }}
-          echo "Creating release for $VERSION"
-          
-          # List artifact structure first
-          echo "=== Artifact structure ==="
-          find artifacts -type f -name '*.AppImage' -o -type f -name '*.exe' -o -type f -name '*.dmg' | sort
-          
-          # Delete existing release if any
-          EXISTING=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases" | \
-            python3 -c "import sys,json; releases=[r for r in json.load(sys.stdin) if r['tag_name']=='$VERSION']; print(releases[0]['id'] if releases else '')")
-          
-          if [ -n "$EXISTING" ]; then
-            echo "Deleting existing release $EXISTING..."
-            curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              "https://api.github.com/repos/${{ github.repository }}/releases/$EXISTING" || true
-          fi
-          
-          # Delete tag ref if exists
-          curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$VERSION" || true
-          
-          # Create release
-          RELEASE_RESP=$(curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Content-Type: application/json" \
-            -d "{\"tag_name\":\"$VERSION\",\"name\":\"YubAI DramaFlow $VERSION\",\"draft\":false,\"prerelease\":false}" \
-            "https://api.github.com/repos/${{ github.repository }}/releases")
-          
-          RELEASE_ID=$(echo "$RELEASE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
-          echo "Created release ID: $RELEASE_ID"
-          
-          # Upload artifacts - use find to locate them reliably
-          for ext in AppImage exe dmg; do
-            while IFS= read -r file; do
-              if [ -n "$file" ] && [ -f "$file" ]; then
-                echo "Uploading $file..."
-                FILENAME=$(basename "$file")
-                curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-                  -H "Content-Type: application/octet-stream" \
-                  --data-binary "@$file" \
-                  "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$FILENAME"
-                echo " ✅ $FILENAME uploaded"
-              fi
-            done < <(find artifacts -type f -name "*.$ext" 2>/dev/null)
-          done
-          
-          echo "Done!"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+          RELEASE_ID: ${{ vars.RELEASE_ID }}
+        run: python3 .github/workflows/release.py
