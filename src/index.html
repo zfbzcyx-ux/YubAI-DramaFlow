@@ -68,6 +68,8 @@ input,textarea,select,button{font-family:inherit}
 .btn{ padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;border:none;transition:all .15s;font-weight:500}
 .btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
 .btn-outline:hover{background:var(--card2)}
+.btn-accent{background:var(--green);color:#fff}
+.btn-accent:hover{opacity:.85}
 .btn-primary{background:var(--accent);color:#fff}
 .btn-primary:hover{opacity:.85}
 .btn-primary:disabled{opacity:.5;cursor:not-allowed}
@@ -211,7 +213,7 @@ input,textarea,select,button{font-family:inherit}
   <div class="sidebar">
     <div class="sidebar-logo">
       <h2>🎬 YubAI DramaFlow</h2>
-      <span>v<span id="appVersion">1.0.0</span></span>
+      <span>v<span id="appVersion">1.0.1</span></span>
     </div>
     <div class="sidebar-nav">
       <div class="nav-section">工具</div>
@@ -289,6 +291,10 @@ input,textarea,select,button{font-family:inherit}
 const API = 'http://39.107.251.193:8000/api';
 const PLAN_PRICE = 29; // ¥/month
 const PLATFORM_FEE = 1.3; // cost × 1.3
+
+// Platform costs (¥ per call)
+const JIMENG_COST = 0.5;     // 即梦图片生成
+const XIAOYUNQUE_COST = 2.0; // 小云雀视频生成
 
 // ====== STATE ======
 let state = {
@@ -599,7 +605,22 @@ function renderStage3() {
       <label class="form-label">性格特点</label>
       <textarea class="form-textarea" id="charPersonality" placeholder="如：开朗、外冷内热、冷静理智..."></textarea>
     </div>
-    <button class="btn btn-primary" style="width:100%" onclick="runStage3()">👤 生成人物</button>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage3()">👤 生成人物描述</button>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="hint-box" style="margin-bottom:10px">
+        <b>🖼️ AI生图（可选）</b><br>
+        基于人物描述，用即梦AI生成角色图片
+      </div>
+      <div class="form-group">
+        <label class="form-label">画幅比例</label>
+        <select class="form-select" id="charImgRatio">
+          <option value="1:1">1:1 方形</option>
+          <option value="16:9">16:9 宽屏</option>
+          <option value="9:16">9:16 竖屏</option>
+        </select>
+      </div>
+      <button class="btn btn-outline" style="width:100%" id="btnGenCharImg" onclick="runStage3Image()">🎨 生成角色图片</button>
+    </div>
   `;
 
   const right = document.createElement('div');
@@ -607,11 +628,15 @@ function renderStage3() {
   right.style.flex = '1';
   const prev = state.stageData[3];
   const prevList = state.stageData['chars'] || [];
+  const charImages = state.stageData['charImages'] || [];
   right.innerHTML = `
     <div class="result-box">
       ${prev ? `
         <h4 style="color:var(--accent2);margin-bottom:12px">已生成角色</h4>
-        <div class="image-grid">${prevList.map(c=>`<div class="img-card"><div style="padding:12px"><b>${c.name}</b><p style="font-size:11px;color:var(--muted);margin-top:4px">${c.desc||''}</p></div></div>`).join('')}</div>
+        <div class="image-grid">${prevList.map((c, i)=>`<div class="img-card" onclick="selectChar(${i})">
+          ${charImages[i] ? `<img src="${charImages[i]}" alt="${c.name}">` : `<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:40px;background:var(--card2)">👤</div>`}
+          <div class="img-label">${c.name}</div>
+        </div>`).join('')}</div>
         <div class="result-content" style="margin-top:16px">${prev}</div>
       ` : `<div class="result-placeholder"><div class="icon">👤</div><h3>人物设计结果</h3><p>输入角色信息后点击"生成人物"</p></div>`}
     </div>
@@ -656,16 +681,39 @@ function renderStage4() {
       <label class="form-label">场景描述</label>
       <textarea class="form-textarea" id="sceneDesc" placeholder="描述场景的具体环境、光线、氛围..."></textarea>
     </div>
-    <button class="btn btn-primary" style="width:100%" onclick="runStage4()">🏞️ 生成场景</button>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage4()">🏞️ 生成场景描述</button>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+      <div class="hint-box" style="margin-bottom:10px">
+        <b>🖼️ AI生图（可选）</b><br>
+        基于场景描述，用即梦AI生成场景图片
+      </div>
+      <div class="form-group">
+        <label class="form-label">画幅比例</label>
+        <select class="form-select" id="sceneImgRatio">
+          <option value="16:9">16:9 宽屏</option>
+          <option value="9:16">9:16 竖屏</option>
+          <option value="1:1">1:1 方形</option>
+        </select>
+      </div>
+      <button class="btn btn-outline" style="width:100%" id="btnGenSceneImg" onclick="runStage4Image()">🎨 生成场景图片</button>
+    </div>
   `;
 
   const right = document.createElement('div');
   right.className = 'right-panel';
   right.style.flex = '1';
   const prev = state.stageData[4];
+  const sceneImages = state.stageData['sceneImages'] || [];
   right.innerHTML = `
     <div class="result-box">
-      ${prev ? `<div class="result-content">${prev}</div>` : `<div class="result-placeholder"><div class="icon">🏞️</div><h3>场景设计结果</h3><p>输入场景信息后点击"生成场景"</p></div>`}
+      ${prev ? `
+        <h4 style="color:var(--accent2);margin-bottom:12px">已生成场景</h4>
+        <div class="image-grid">${sceneImages.map((url, i)=>`<div class="img-card">
+          ${url ? `<img src="${url}" alt="场景${i+1}">` : `<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;font-size:40px;background:var(--card2)">🏞️</div>`}
+          <div class="img-label">场景 ${i+1}</div>
+        </div>`).join('')}</div>
+        <div class="result-content" style="margin-top:16px">${prev}</div>
+      ` : `<div class="result-placeholder"><div class="icon">🏞</div><h3>场景设计结果</h3><p>输入场景信息后点击"生成场景"</p></div>`}
     </div>
   `;
   const content = document.getElementById('contentArea');
@@ -736,7 +784,7 @@ function renderStage6() {
     </div>
     <div class="form-group">
       <label class="form-label">视频生成工具</label>
-      <select class="form-select" id="videoTool">
+      <select class="form-select" id="videoTool" onchange="toggleVideoGen()">
         <option value="xiaoyunque">小云雀（推荐）</option>
         <option value="runway">Runway</option>
         <option value="pika">Pika</option>
@@ -749,22 +797,61 @@ function renderStage6() {
         <option value="10">10 秒</option>
       </select>
     </div>
-    <button class="btn btn-primary" style="width:100%" onclick="runStage6()">🎥 生成提示词</button>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage6()">📝 生成视频提示词</button>
+    <div id="videoGenSection" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:none">
+      <div class="hint-box" style="margin-bottom:10px">
+        <b>🎬 AI视频生成（可选）</b><br>
+        用小云雀直接生成视频（需配置火山引擎 AK/SK）
+      </div>
+      <div class="form-group">
+        <label class="form-label">选择镜头（生成哪一段）</label>
+        <select class="form-select" id="videoShotSelect">
+          <option value="0">全部镜头</option>
+          <option value="1">镜头 1</option>
+          <option value="2">镜头 2</option>
+          <option value="3">镜头 3</option>
+        </select>
+      </div>
+      <button class="btn btn-accent" style="width:100%" id="btnGenVideo" onclick="runStage6Video()">🎬 生成小云雀视频</button>
+    </div>
+    <div id="videoProgress" style="margin-top:12px;display:none" class="hint-box">
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="spinner" style="width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite"></div>
+        <span id="videoProgressText">视频生成中，请稍候...</span>
+      </div>
+      <div style="margin-top:8px;background:var(--bg);height:4px;border-radius:2px;overflow:hidden">
+        <div id="videoProgressBar" style="height:100%;background:var(--accent);width:30%;transition:width .5s;border-radius:2px"></div>
+      </div>
+    </div>
   `;
 
   const right = document.createElement('div');
   right.className = 'right-panel';
   right.style.flex = '1';
   const prev = state.stageData[6];
+  const videoResults = state.stageData['videoResults'] || [];
   right.innerHTML = `
     <div class="result-box">
-      ${prev ? `<div class="result-content">${prev}</div>` : `<div class="result-placeholder"><div class="icon">🎥</div><h3>视频提示词</h3><p>分镜完成后，生成各镜头的视频提示词</p></div>`}
+      ${prev ? `
+        <h4 style="color:var(--accent2);margin-bottom:12px">📝 视频提示词</h4>
+        <div class="result-content" style="margin-bottom:16px">${prev}</div>
+        ${videoResults.length ? `<h4 style="color:var(--accent2);margin-bottom:12px">🎬 已生成视频</h4><div class="image-grid">${videoResults.map((v,i)=>`<div class="img-card" style="position:relative" onclick="window.electronAPI && window.electronAPI.openExternal('${v.url}')">
+          ${v.url ? `<video src="${v.url}" style="width:100%;aspect-ratio:16/9;object-fit:cover;background:#000" muted></video>` : `<div style="aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;font-size:40px;background:var(--card2)">🎬</div>`}
+          <div class="img-label">${v.label || '视频 '+(i+1)}</div>
+        </div>`).join('')}</div>` : ''}
+      ` : `<div class="result-placeholder"><div class="icon">🎥</div><h3>视频提示词</h3><p>分镜完成后，生成各镜头的视频提示词</p></div>`}
     </div>
   `;
   const content = document.getElementById('contentArea');
   content.innerHTML = '';
   content.appendChild(left);
   content.appendChild(right);
+}
+
+function toggleVideoGen() {
+  const tool = document.getElementById('videoTool')?.value;
+  const section = document.getElementById('videoGenSection');
+  if (section) section.style.display = tool === 'xiaoyunque' ? 'block' : 'none';
 }
 
 // ====== API CALLS ======
@@ -819,6 +906,110 @@ async function reportUsage(stage, provider, callCount, cost, revenue) {
       }),
     });
   } catch {}
+}
+
+// ====== VOLCENGINE / JIMENG IMAGE ======
+function getVolcAKSK() {
+  return { ak: state.apiKeys.volcAK || '', sk: state.apiKeys.volcSK || '' };
+}
+
+async function volcSign(method, path, body, ak, sk) {
+  const t = Math.floor(Date.now() / 1000);
+  const contentHash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(body || '')).then(h => Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join(''));
+  const signedHeaders = 'content-type;host;x-date';
+  const canonicalRequest = [method, path, '', 'content-type:application/json', `host:visual.volcengineapi.com`, `x-date:${t}`, '', signedHeaders, contentHash].join('\n');
+  const sign = await crypto.subtle.importKey('HMAC', new TextEncoder().encode(sk), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']).then(k => crypto.subtle.sign('HMAC', k, new TextEncoder().encode(canonicalRequest))).then(h => Array.from(new Uint8Array(h)).map(b => b.toString(16).padStart(2, '0')).join(''));
+  return `HMAC-SHA256 Credential=${ak}/${t.toString().slice(0,8)}, SignedHeaders=${signedHeaders}, Signature=${sign}`;
+}
+
+async function volcRequest(method, path, body, ak, sk) {
+  const t = Math.floor(Date.now() / 1000);
+  const bodyStr = JSON.stringify(body);
+  const sig = await volcSign(method, path, bodyStr, ak, sk);
+  const res = await fetch('https://visual.volcengineapi.com' + path, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      'Host': 'visual.volcengineapi.com',
+      'X-Date': t.toString(),
+      'Authorization': sig,
+    },
+    body: bodyStr,
+  });
+  return res.json();
+}
+
+// Generate image via Jimeng 4.0 (req_key: jimeng_seedream46_cvtob)
+async function generateJimengImage(prompt, aspectRatio='1:1') {
+  const { ak, sk } = getVolcAKSK();
+  if (!ak || !sk) throw new Error('请先在设置中配置火山引擎 AK/SK');
+  const ratioMap = { '16:9': '16_9', '9:16': '9_16', '1:1': '1_1' };
+  const req = {
+    req_key: 'jimeng_seedream46_cvtob',
+    prompt,
+    aspect_ratio: ratioMap[aspectRatio] || '1_1',
+    return_url: true,
+  };
+  const data = await volcRequest('POST', '/v1/jimeng/image/generate', req, ak, sk);
+  if (data.code !== 10000) throw new Error('Jimeng: ' + (data.message || JSON.stringify(data)));
+  return data; // { task_id, ... }
+}
+
+// Poll Jimeng task status
+async function pollJimengTask(taskId, maxWaitSec = 60) {
+  const { ak, sk } = getVolcAKSK();
+  const step = 3;
+  for (let i = 0; i < maxWaitSec / step; i++) {
+    await new Promise(r => setTimeout(r, step * 1000));
+    const data = await volcRequest('GET', `/v1/jimeng/image/generate/query?task_id=${taskId}`, null, ak, sk);
+    if (data.code === 10000) {
+      const s = data.data?.task_status;
+      if (s === 'task_finished') return data.data;
+      if (s === 'task_failed') throw new Error('Jimeng 图片生成失败: ' + (data.data?.fail_reason || ''));
+    }
+  }
+  throw new Error('Jimeng 图片生成超时');
+}
+
+// Generate video via Xiaoyunque 2.0 (req_key: pippit_iv2v_v20_cvtob)
+async function generateXiaoyunqueVideo(prompt, duration = 5) {
+  const { ak, sk } = getVolcAKSK();
+  if (!ak || !sk) throw new Error('请先在设置中配置火山引擎 AK/SK');
+  const req = {
+    req_key: 'pippit_iv2v_v20_cvtob',
+    prompt,
+    duration: duration,
+    return_url: true,
+  };
+  const data = await volcRequest('POST', '/v1/pippit/video/generate', req, ak, sk);
+  if (data.code !== 10000) throw new Error('Xiaoyunque: ' + (data.message || JSON.stringify(data)));
+  return data; // { task_id, ... }
+}
+
+// Poll Xiaoyunque task status
+async function pollXiaoyunqueTask(taskId, maxWaitSec = 120) {
+  const { ak, sk } = getVolcAKSK();
+  const step = 5;
+  for (let i = 0; i < maxWaitSec / step; i++) {
+    await new Promise(r => setTimeout(r, step * 1000));
+    const data = await volcRequest('GET', `/v1/pippit/video/generate/query?task_id=${taskId}`, null, ak, sk);
+    if (data.code === 10000) {
+      const s = data.data?.task_status;
+      if (s === 'task_finished') return data.data;
+      if (s === 'task_failed') throw new Error('Xiaoyunque 视频生成失败: ' + (data.data?.fail_reason || ''));
+    }
+  }
+  throw new Error('Xiaoyunque 视频生成超时');
+}
+
+// Check balance before API call
+async function checkBalance(cost) {
+  if (!state.user) return false;
+  try {
+    const res = await fetch(API + '/usage/balance/' + state.user.user_id).then(r => r.json());
+    const balance = (res.balance || 0) / 100; // cents → yuan
+    return balance >= cost;
+  } catch { return false; }
 }
 
 // ====== STAGE RUNNERS ======
@@ -893,6 +1084,42 @@ async function runStage3() {
   setLoading(null, false);
 }
 
+async function runStage3Image() {
+  const charIdx = (state.stageData['chars'] || []).length - 1;
+  if (charIdx < 0 || !state.stageData[3]) { showToast('请先生成人物描述', 'error'); return; }
+  if (!checkAuth()) return;
+  if (!state.apiKeys.volcAK || !state.apiKeys.volcSK) { showToast('请先配置火山引擎 AK/SK', 'error'); showModule('settings'); return; }
+  const chars = state.stageData['chars'];
+  const lastChar = chars[chars.length - 1];
+  const ratio = document.getElementById('charImgRatio')?.value || '1:1';
+
+  if (!await checkBalance(JIMENG_COST)) { showToast('余额不足，请先充值', 'error'); return; }
+  setLoading('btnGenCharImg', true);
+  try {
+    const result = await generateJimengImage(lastChar.desc, ratio);
+    const taskData = await pollJimengTask(result.data.task_id);
+    const imgUrl = taskData.images?.[0] || taskData.image_url;
+    if (!imgUrl) throw new Error('未获取到图片URL');
+    if (!state.stageData['charImages']) state.stageData['charImages'] = [];
+    state.stageData['charImages'][charIdx] = imgUrl;
+    await deductBalance(JIMENG_COST);
+    await reportUsage(3, 'Jimeng', 1, JIMENG_COST, JIMENG_COST * PLATFORM_FEE);
+    renderStage3();
+    showToast('角色图片生成完成', 'success');
+  } catch(e) {
+    showToast('图片生成失败：' + e.message, 'error');
+  }
+  setLoading('btnGenCharImg', false);
+}
+
+function selectChar(idx) {
+  // Highlight selected character
+  document.querySelectorAll('.img-card').forEach((el, i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+  state.stageData['selectedCharIdx'] = idx;
+}
+
 async function runStage4() {
   const name = document.getElementById('sceneName').value.trim();
   const type = document.getElementById('sceneType').value;
@@ -915,6 +1142,32 @@ async function runStage4() {
     showToast('生成失败：' + e.message, 'error');
   }
   setLoading(null, false);
+}
+
+async function runStage4Image() {
+  if (!state.stageData[4]) { showToast('请先生成场景描述', 'error'); return; }
+  if (!checkAuth()) return;
+  if (!state.apiKeys.volcAK || !state.apiKeys.volcSK) { showToast('请先配置火山引擎 AK/SK', 'error'); showModule('settings'); return; }
+  const sceneDesc = document.getElementById('sceneDesc')?.value || state.stageData[4] || '';
+  const ratio = document.getElementById('sceneImgRatio')?.value || '16:9';
+
+  if (!await checkBalance(JIMENG_COST)) { showToast('余额不足，请先充值', 'error'); return; }
+  setLoading('btnGenSceneImg', true);
+  try {
+    const result = await generateJimengImage(sceneDesc, ratio);
+    const taskData = await pollJimengTask(result.data.task_id);
+    const imgUrl = taskData.images?.[0] || taskData.image_url;
+    if (!imgUrl) throw new Error('未获取到图片URL');
+    if (!state.stageData['sceneImages']) state.stageData['sceneImages'] = [];
+    state.stageData['sceneImages'].push(imgUrl);
+    await deductBalance(JIMENG_COST);
+    await reportUsage(4, 'Jimeng', 1, JIMENG_COST, JIMENG_COST * PLATFORM_FEE);
+    renderStage4();
+    showToast('场景图片生成完成', 'success');
+  } catch(e) {
+    showToast('图片生成失败：' + e.message, 'error');
+  }
+  setLoading('btnGenSceneImg', false);
 }
 
 async function runStage5() {
@@ -960,6 +1213,63 @@ async function runStage6() {
     showToast('生成失败：' + e.message, 'error');
   }
   setLoading(null, false);
+}
+
+async function runStage6Video() {
+  if (!state.stageData[6]) { showToast('请先生成视频提示词', 'error'); return; }
+  if (!checkAuth()) return;
+  if (!state.apiKeys.volcAK || !state.apiKeys.volcSK) { showToast('请先配置火山引擎 AK/SK', 'error'); showModule('settings'); return; }
+
+  const duration = parseInt(document.getElementById('videoDuration')?.value || '5');
+  const shotIdx = parseInt(document.getElementById('videoShotSelect')?.value || '0');
+
+  // Extract individual shot prompts from the stage6 result
+  const lines = state.stageData[6].split('\n').filter(l => l.trim() && (l.match(/^\[/) || l.match(/^镜头/)));
+  if (!lines.length) { showToast('视频提示词格式不正确，请重新生成', 'error'); return; }
+
+  const shotsToGen = shotIdx === 0 ? lines : [lines[shotIdx - 1]].filter(Boolean);
+  if (!shotsToGen.length) { showToast('该镜头无提示词', 'error'); return; }
+
+  if (!await checkBalance(XIAOYUNQUE_COST * shotsToGen.length)) {
+    showToast('余额不足，请先充值', 'error'); return;
+  }
+
+  // Show progress
+  const progressEl = document.getElementById('videoProgress');
+  const progressText = document.getElementById('videoProgressText');
+  const progressBar = document.getElementById('videoProgressBar');
+  if (progressEl) progressEl.style.display = 'block';
+  if (progressBar) progressBar.style.width = '10%';
+
+  setLoading('btnGenVideo', true);
+  const results = [];
+
+  try {
+    for (let i = 0; i < shotsToGen.length; i++) {
+      const line = shotsToGen[i];
+      const label = line.replace(/^\[[^\]]+\]\s*/, '').trim().slice(0, 40);
+      if (progressText) progressText.textContent = `生成第 ${i+1}/${shotsToGen.length} 个镜头...`;
+      if (progressBar) progressBar.style.width = (10 + Math.round((i / shotsToGen.length) * 70)) + '%';
+
+      const result = await generateXiaoyunqueVideo(line, duration);
+      const taskData = await pollXiaoyunqueTask(result.data.task_id, 120);
+      const videoUrl = taskData.video_url || taskData.url;
+      if (videoUrl) results.push({ label, url: videoUrl });
+      await deductBalance(XIAOYUNQUE_COST);
+      await reportUsage(6, 'Xiaoyunque', 1, XIAOYUNQUE_COST, XIAOYUNQUE_COST * PLATFORM_FEE);
+    }
+
+    if (!state.stageData['videoResults']) state.stageData['videoResults'] = [];
+    state.stageData['videoResults'].push(...results);
+    if (progressBar) progressBar.style.width = '100%';
+    if (progressText) progressText.textContent = '视频生成完成！';
+    renderStage6();
+    showToast(`成功生成 ${results.length} 个视频`, 'success');
+  } catch(e) {
+    showToast('视频生成失败：' + e.message, 'error');
+  }
+  setLoading('btnGenVideo', false);
+  if (progressEl) setTimeout(() => { progressEl.style.display = 'none'; }, 3000);
 }
 
 // ====== SETTINGS ======

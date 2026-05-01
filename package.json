@@ -1,6 +1,6 @@
 {
   "name": "yubai-dramaflow",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "YubAI DramaFlow - AI漫剧生成客户端",
   "main": "src/main.js",
   "scripts": {
