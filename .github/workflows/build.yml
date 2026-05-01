@@ -76,90 +76,43 @@ jobs:
         continue-on-error: true
 
       - name: Create GitHub Release
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            const path = require('path');
-            
-            // Get version from workflow_dispatch input (falls back to ref_name which is 'master' for workflow_dispatch)
-            let version = github.event.inputs?.version 
-              || github.context.ref_name.replace('refs/tags/', '');
-            version = version.startsWith('v') ? version : 'v' + version;
-            const releaseName = 'YubAI DramaFlow ' + version;
-            const releaseTag = version;
-            
-            // Delete existing release if any
-            const existingReleases = await github.rest.repos.listReleases({
-              owner: context.repo.owner,
-              repo: context.repo.repo
-            });
-            
-            let releaseId;
-            for (const rel of existingReleases.data) {
-              if (rel.tag_name === releaseTag) {
-                console.log(`Found existing release ${rel.id}, deleting...`);
-                await github.rest.repos.deleteRelease({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  release_id: rel.id
-                });
-                break;
-              }
-            }
-            
-            // Also delete existing tag ref
-            try {
-              await github.rest.git.deleteRef({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                ref: `tags/${releaseTag}`
-              });
-              console.log(`Deleted tag ref: ${releaseTag}`);
-            } catch(e) {
-              console.log(`Tag delete: ${e.message}`);
-            }
-            
-            // Create new release
-            const release = await github.rest.repos.createRelease({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              tag_name: releaseTag,
-              name: releaseName,
-              draft: false,
-              prerelease: false,
-              generate_release_notes: true
-            });
-            
-            console.log(`Created release ${release.data.id}: ${release.data.html_url}`);
-            
-            // Upload assets
-            const artifactsDir = 'artifacts';
-            const dirs = fs.readdirSync(artifactsDir);
-            for (const dir of dirs) {
-              const dirPath = path.join(artifactsDir, dir);
-              if (!fs.statSync(dirPath).isDirectory()) continue;
-              const files = fs.readdirSync(dirPath);
-              for (const file of files) {
-                const filePath = path.join(dirPath, file);
-                const stat = fs.statSync(filePath);
-                console.log(`Uploading ${file} (${stat.size} bytes)...`);
-                try {
-                  const fileContent = fs.readFileSync(filePath);
-                  await github.rest.repos.uploadReleaseAsset({
-                    owner: context.repo.owner,
-                    repo: context.repo.repo,
-                    release_id: release.data.id,
-                    name: file,
-                    data: fileContent,
-                    headers: {
-                      'Content-Type': 'application/octet-stream',
-                      'Content-Length': fileContent.length
-                    }
-                  });
-                  console.log(`  ✅ ${file}`);
-                } catch(e) {
-                  console.log(`  ❌ ${file}: ${e.message}`);
-                }
-              }
-            }
+        run: |
+          VERSION=${{ github.ref_name }}
+          echo "Creating release for $VERSION"
+          
+          # Delete existing release if any
+          EXISTING=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases" | \
+            python3 -c "import sys,json; releases=[r for r in json.load(sys.stdin) if r['tag_name']=='$VERSION']; print(releases[0]['id'] if releases else '')")
+          
+          if [ -n "$EXISTING" ]; then
+            echo "Deleting existing release $EXISTING..."
+            curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              "https://api.github.com/repos/${{ github.repository }}/releases/$EXISTING"
+          fi
+          
+          # Delete tag ref if exists
+          curl -s -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/git/refs/tags/$VERSION" || true
+          
+          # Create release
+          RELEASE_RESP=$(curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{\"tag_name\":\"$VERSION\",\"name\":\"YubAI DramaFlow $VERSION\",\"draft\":false,\"prerelease\":false}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases")
+          
+          RELEASE_ID=$(echo "$RELEASE_RESP" | python3 -c "import sys,json; print(json.load(sys.stdin)['id'])")
+          echo "Created release ID: $RELEASE_ID"
+          
+          # Upload all artifacts
+          for file in artifacts/linux-artifact/*.AppImage artifacts/windows-artifact/*.exe artifacts/macos-artifact/*.dmg; do
+            if [ -f "$file" ]; then
+              echo "Uploading $file..."
+              FILENAME=$(basename "$file")
+              curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary "@$file" \
+                "https://uploads.github.com/repos/${{ github.repository }}/releases/$RELEASE_ID/assets?name=$FILENAME"
+              echo " ✅ $FILENAME"
+            fi
+          done
