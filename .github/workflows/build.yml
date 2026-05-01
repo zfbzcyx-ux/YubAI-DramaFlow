@@ -57,6 +57,8 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -80,10 +82,11 @@ jobs:
             const fs = require('fs');
             const path = require('path');
             
-            const version = github.context.ref_name;
+            // Get version from workflow_dispatch input (falls back to ref_name which is 'master' for workflow_dispatch)
+            let version = github.event.inputs?.version 
+              || github.context.ref_name.replace('refs/tags/', '');
+            version = version.startsWith('v') ? version : 'v' + version;
             const releaseName = 'YubAI DramaFlow ' + version;
-            
-            // Get or create release
             const releaseTag = version;
             
             // Delete existing release if any
