@@ -145,15 +145,16 @@ jobs:
                 const stat = fs.statSync(filePath);
                 console.log(`Uploading ${file} (${stat.size} bytes)...`);
                 try {
+                  const fileContent = fs.readFileSync(filePath);
                   await github.rest.repos.uploadReleaseAsset({
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     release_id: release.data.id,
                     name: file,
-                    data: fs.createReadStream(filePath),
+                    data: fileContent,
                     headers: {
                       'Content-Type': 'application/octet-stream',
-                      'Content-Length': stat.size
+                      'Content-Length': fileContent.length
                     }
                   });
                   console.log(`  ✅ ${file}`);
