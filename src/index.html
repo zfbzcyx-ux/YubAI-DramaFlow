@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self' http://39.107.251.193:8000; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://39.107.251.193:8000 https://api.minimax.chat https://visual.volcengineapi.com https://api.volcengine.com; img-src 'self' data: blob: https:; font-src 'self' data:;">
+<title>YubAI DramaFlow</title>
+<style>
+:root{
+  --bg:#0f1117;--sidebar:#161b27;--card:#1e2433;--card2:#252d3f;
+  --border:#2a3347;--accent:#6c5ce7;--accent2:#a29bfe;
+  --green:#00b894;--red:#e74c3c;--yellow:#fdcb6e;--blue:#0984e3;
+  --text:#e0e6f0;--muted:#8892a4;--radius:12px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg);color:var(--text);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+input,textarea,select,button{font-family:inherit}
+
+/* LOGIN SCREEN */
+#loginScreen{display:flex;align-items:center;justify-content:center;height:100vh;background:var(--bg)}
+.login-box{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:48px 44px;width:400px;text-align:center}
+.login-box h1{font-size:24px;margin-bottom:4px}
+.login-box .sub{color:var(--muted);font-size:13px;margin-bottom:36px}
+.login-box input{display:block;width:100%;padding:13px 16px;margin-bottom:14px;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:14px;outline:none;transition:border .2s}
+.login-box input:focus{border-color:var(--accent)}
+.login-box .btn-login{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;margin-top:8px;transition:opacity .2s}
+.login-box .btn-login:hover{opacity:.85}
+.login-box .btn-login:disabled{opacity:.5;cursor:not-allowed}
+.login-err{color:var(--red);font-size:13px;margin-top:10px;min-height:18px}
+.login-box .switch{font-size:12px;color:var(--muted);margin-top:20px}
+.login-box .switch a{color:var(--accent2);cursor:pointer}
+
+/* LAYOUT */
+#appScreen{display:none;flex:1;overflow:hidden}
+#appScreen.active{display:flex}
+
+/* SIDEBAR */
+.sidebar{width:220px;background:var(--sidebar);border-right:1px solid var(--border);display:flex;flex-direction:column;flex-shrink:0}
+.sidebar-logo{padding:20px 20px 16px;border-bottom:1px solid var(--border)}
+.sidebar-logo h2{font-size:15px;color:var(--accent2);display:flex;align-items:center;gap:8px}
+.sidebar-logo span{display:block;font-size:11px;color:var(--muted);margin-top:3px}
+
+.sidebar-nav{flex:1;padding:12px 0;overflow-y:auto}
+.nav-section{padding:16px 20px 6px;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.nav-item{padding:10px 20px;cursor:pointer;display:flex;align-items:center;gap:10px;font-size:13px;color:var(--muted);transition:all .15s;border-left:3px solid transparent;user-select:none}
+.nav-item:hover{color:var(--text);background:rgba(108,92,231,.08)}
+.nav-item.active{color:var(--accent2);background:rgba(108,92,231,.12);border-left-color:var(--accent)}
+.nav-item .icon{font-size:15px;width:20px;text-align:center}
+.nav-item .badge{background:var(--accent);color:#fff;font-size:10px;padding:1px 6px;border-radius:10px;margin-left:auto}
+
+.sidebar-bottom{padding:14px 20px;border-top:1px solid var(--border)}
+.user-info{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.user-avatar{width:32px;height:32px;background:var(--accent);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px}
+.user-name{font-size:13px;font-weight:500}
+.user-name span{display:block;font-size:11px;color:var(--muted)}
+.balance-tag{display:inline-block;padding:2px 8px;background:rgba(0,184,148,.15);color:var(--green);border-radius:6px;font-size:12px;font-weight:500}
+.sidebar-bottom .btn-logout{font-size:11px;color:var(--muted);cursor:pointer;display:inline-block}
+.sidebar-bottom .btn-logout:hover{color:var(--red)}
+
+/* MAIN AREA */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+
+/* TOP BAR */
+.topbar{height:56px;background:var(--card);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;flex-shrink:0}
+.topbar-title{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.topbar-title .stage-name{color:var(--accent2)}
+.topbar-right{display:flex;align-items:center;gap:12px}
+.btn{ padding:7px 16px;border-radius:8px;font-size:13px;cursor:pointer;border:none;transition:all .15s;font-weight:500}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--card2)}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{opacity:.85}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{opacity:.85}
+.btn-sm{padding:5px 12px;font-size:12px}
+.btn-update{background:var(--yellow);color:#000}
+
+/* WORKFLOW TABS */
+.workflow-tabs{background:var(--card);border-bottom:1px solid var(--border);display:flex;padding:0 24px;flex-shrink:0}
+.wf-tab{flex:1;padding:14px 8px;text-align:center;font-size:12px;color:var(--muted);cursor:pointer;position:relative;transition:all .15s;border-bottom:2px solid transparent;margin-bottom:-1px}
+.wf-tab:hover{color:var(--text);background:rgba(108,92,231,.05)}
+.wf-tab.active{color:var(--accent2);border-bottom-color:var(--accent2)}
+.wf-tab .num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;background:var(--bg);border-radius:50%;font-size:11px;margin-right:4px}
+.wf-tab.active .num{background:var(--accent);color:#fff}
+.wf-tab.locked{opacity:.5;cursor:not-allowed}
+.wf-tab .lock{font-size:10px;margin-left:4px}
+
+/* CONTENT AREA */
+.content{flex:1;display:flex;overflow:hidden}
+
+/* LEFT PANEL - INPUT */
+.left-panel{width:380px;background:var(--bg);border-right:1px solid var(--border);padding:24px;overflow-y:auto;flex-shrink:0}
+.panel-title{font-size:14px;font-weight:600;margin-bottom:16px;color:var(--accent2)}
+.panel-desc{font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6}
+
+.form-group{margin-bottom:16px}
+.form-label{display:block;font-size:12px;color:var(--muted);margin-bottom:6px}
+.form-input,.form-select,.form-textarea{width:100%;padding:10px 14px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:13px;outline:none;transition:border .2s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{border-color:var(--accent)}
+.form-textarea{resize:vertical;min-height:100px;line-height:1.6}
+.form-select{cursor:pointer}
+.char-count{font-size:11px;color:var(--muted);text-align:right;margin-top:4px}
+.hint{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.5}
+.hint-box{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:12px;color:var(--muted);margin-bottom:16px}
+.hint-box b{color:var(--text)}
+
+/* RIGHT PANEL - OUTPUT */
+.right-panel{flex:1;padding:24px;overflow-y:auto;background:var(--bg)}
+
+/* RESULT BOX */
+.result-box{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:24px;min-height:300px}
+.result-placeholder{text-align:center;padding:60px 20px;color:var(--muted)}
+.result-placeholder .icon{font-size:48px;margin-bottom:16px;opacity:.5}
+.result-placeholder h3{font-size:16px;margin-bottom:8px;color:var(--text)}
+.result-placeholder p{font-size:13px}
+.result-content{font-size:14px;line-height:1.8;white-space:pre-wrap;word-break:break-word}
+.result-content h4{color:var(--accent2);margin:16px 0 8px;font-size:14px}
+.result-actions{margin-top:20px;padding-top:16px;border-top:1px solid var(--border);display:flex;gap:10px;flex-wrap:wrap}
+
+/* LOADING */
+.loading-wrap{text-align:center;padding:40px}
+.spinner{display:inline-block;width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin-bottom:12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:13px;color:var(--muted)}
+
+/* STAGE-SPECIFIC LAYOUT */
+.stage-two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.char-card{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);padding:16px}
+.char-card h4{font-size:13px;margin-bottom:10px;color:var(--accent2)}
+.char-card .desc{font-size:12px;color:var(--muted);line-height:1.6}
+
+/* IMAGE GRID */
+.image-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.img-card{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:transform .2s;border:2px solid transparent}
+.img-card:hover{transform:scale(1.02);border-color:var(--accent)}
+.img-card.selected{border-color:var(--green)}
+.img-card img{width:100%;aspect-ratio:1;object-fit:cover;display:block}
+.img-card .img-label{padding:8px 10px;font-size:11px;color:var(--muted);text-align:center}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:1000;display:none}
+.modal-overlay.active{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:28px;width:480px;max-width:90vw}
+.modal h2{font-size:16px;margin-bottom:4px}
+.modal .modal-sub{font-size:12px;color:var(--muted);margin-bottom:20px}
+.modal-close{float:right;font-size:20px;color:var(--muted);cursor:pointer;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-actions{margin-top:20px;display:flex;gap:10px;justify-content:flex-end}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;padding:12px 20px;background:var(--card);border:1px solid var(--border);border-radius:10px;font-size:13px;z-index:2000;transform:translateY(100px);opacity:0;transition:all .3s;max-width:320px}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.success{border-color:var(--green);color:var(--green)}
+.toast.error{border-color:var(--red);color:var(--red)}
+.toast.info{border-color:var(--blue);color:var(--blue)}
+
+/* API KEY SETTINGS */
+.settings-section{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:20px}
+.settings-section h3{font-size:14px;font-weight:600;margin-bottom:16px}
+.api-key-row{display:flex;gap:10px;margin-bottom:12px;align-items:center}
+.api-key-row input{flex:1}
+.api-key-row .key-preview{font-size:11px;color:var(--muted);background:var(--bg);padding:4px 8px;border-radius:4px}
+
+/* USAGE INFO */
+.usage-bar{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-top:16px}
+.usage-bar .label{font-size:12px;color:var(--muted);margin-bottom:6px}
+.usage-bar .bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
+.usage-bar .bar-fill{height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+.usage-bar .bar-text{font-size:12px;margin-top:4px;text-align:right}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .stage-two-col{grid-template-columns:1fr}
+  .left-panel{width:300px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen">
+  <div class="login-box">
+    <h1>🎬 YubAI DramaFlow</h1>
+    <p class="sub">AI漫剧生成客户端 · 登录你的账号</p>
+    <input type="text" id="loginUsername" placeholder="用户名" value="test">
+    <input type="password" id="loginPassword" placeholder="密码" value="test123">
+    <button class="btn-login" id="btnLogin" onclick="doLogin()">登 录</button>
+    <div class="login-err" id="loginErr"></div>
+    <p class="switch">没有账号？<a onclick="showRegister()">立即注册</a></p>
+  </div>
+</div>
+
+<!-- REGISTER -->
+<div id="registerScreen" style="display:none">
+  <div class="login-box">
+    <h1>🎬 YubAI DramaFlow</h1>
+    <p class="sub">创建新账号，开始你的AI漫剧创作</p>
+    <input type="text" id="regUsername" placeholder="用户名">
+    <input type="password" id="regPassword" placeholder="密码（至少6位）">
+    <input type="email" id="regEmail" placeholder="邮箱（可选）">
+    <button class="btn-login" id="btnRegister" onclick="doRegister()">注 册</button>
+    <div class="login-err" id="regErr"></div>
+    <p class="switch">已有账号？<a onclick="showLogin()">立即登录</a></p>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="appScreen">
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <h2>🎬 YubAI DramaFlow</h2>
+      <span>v<span id="appVersion">1.0.0</span></span>
+    </div>
+    <div class="sidebar-nav">
+      <div class="nav-section">工具</div>
+      <div class="nav-item active" onclick="showModule('home',this)">
+        <span class="icon">🏠</span>工作台<span class="badge" id="badgeHome">6</span>
+      </div>
+      <div class="nav-item" onclick="showModule('settings',this)">
+        <span class="icon">⚙️</span>API Key设置
+      </div>
+      <div class="nav-item" onclick="showModule('history',this)">
+        <span class="icon">📜</span>生成历史
+      </div>
+      <div class="nav-section">账户</div>
+      <div class="nav-item" onclick="showModule('account',this)">
+        <span class="icon">👤</span>账户信息
+      </div>
+    </div>
+    <div class="sidebar-bottom">
+      <div class="user-info">
+        <div class="user-avatar">👤</div>
+        <div>
+          <div class="user-name" id="sidebarUsername">-</div>
+          <span class="balance-tag" id="sidebarBalance">¥0.00</span>
+        </div>
+      </div>
+      <span class="btn-logout" onclick="logout()">退出登录</span>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+    <!-- TOP BAR -->
+    <div class="topbar">
+      <div class="topbar-title" id="topbarTitle">🎬 AI漫剧工作台</div>
+      <div class="topbar-right">
+        <button class="btn btn-outline btn-sm" id="btnUpdate" onclick="checkUpdate()" style="display:none">检查更新</button>
+        <button class="btn btn-primary btn-sm" id="btnAccount" onclick="showModule('account', document.querySelector('.nav-item:last-child'))">账户：<span id="topbarBalance">¥0.00</span></button>
+      </div>
+    </div>
+
+    <!-- WORKFLOW TABS -->
+    <div class="workflow-tabs" id="workflowTabs">
+      <div class="wf-tab active" data-stage="1" onclick="switchStage(1)">
+        <span class="num">1</span>剧本改写
+      </div>
+      <div class="wf-tab" data-stage="2" onclick="switchStage(2)">
+        <span class="num">2</span>风格定义
+      </div>
+      <div class="wf-tab" data-stage="3" onclick="switchStage(3)">
+        <span class="num">3</span>人物设计
+      </div>
+      <div class="wf-tab" data-stage="4" onclick="switchStage(4)">
+        <span class="num">4</span>场景设计
+      </div>
+      <div class="wf-tab" data-stage="5" onclick="switchStage(5)">
+        <span class="num">5</span>分镜生成
+      </div>
+      <div class="wf-tab" data-stage="6" onclick="switchStage(6)">
+        <span class="num">6</span>视频提示词
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div class="content" id="contentArea">
+      <!-- Dynamic content loaded here -->
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ====== CONSTANTS ======
+const API = 'http://39.107.251.193:8000/api';
+const PLAN_PRICE = 29; // ¥/month
+const PLATFORM_FEE = 1.3; // cost × 1.3
+
+// ====== STATE ======
+let state = {
+  user: null,       // {user_id, username, plan, balance}
+  apiKeys: {},      // {minimax, volcengine}
+  currentStage: 1,
+  stageData: {},    // results from each stage
+  isLoading: false,
+};
+
+// ====== INIT ======
+async function init() {
+  // Restore session
+  const saved = localStorage.getItem('yubai_session');
+  if (saved) {
+    try {
+      state.user = JSON.parse(saved);
+      showApp();
+      loadHome();
+    } catch {}
+  }
+  // Load API keys
+  const keys = localStorage.getItem('yubai_apikeys');
+  if (keys) state.apiKeys = JSON.parse(keys);
+
+  // Version
+  if (window.electronAPI) {
+    const ver = await window.electronAPI.getAppVersion();
+    document.getElementById('appVersion').textContent = ver;
+    document.getElementById('btnUpdate').style.display = 'inline-block';
+    window.electronAPI.onUpdateProgress((p) => {
+      showToast(`下载进度: ${Math.round(p)}%`, 'info');
+    });
+  }
+}
+init();
+
+// ====== AUTH ======
+function showLogin() {
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('registerScreen').style.display = 'none';
+}
+function showRegister() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('registerScreen').style.display = 'flex';
+}
+
+async function doLogin() {
+  const u = document.getElementById('loginUsername').value.trim();
+  const p = document.getElementById('loginPassword').value;
+  if (!u || !p) { showToast('请输入用户名和密码', 'error'); return; }
+  document.getElementById('btnLogin').disabled = true;
+  try {
+    const res = await fetch(API+'/auth/login', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: u, password: p}),
+    }).then(r=>r.json());
+    if (res.status === 'success') {
+      state.user = {user_id: res.user_id, username: res.username, plan: res.plan, balance: res.balance||0};
+      localStorage.setItem('yubai_session', JSON.stringify(state.user));
+      showApp();
+      showToast('登录成功', 'success');
+      loadHome();
+    } else {
+      document.getElementById('loginErr').textContent = res.message || '登录失败';
+    }
+  } catch(e) {
+    document.getElementById('loginErr').textContent = '网络错误，请检查服务器连接';
+  }
+  document.getElementById('btnLogin').disabled = false;
+}
+
+async function doRegister() {
+  const u = document.getElementById('regUsername').value.trim();
+  const p = document.getElementById('regPassword').value;
+  const e = document.getElementById('regEmail').value.trim();
+  if (!u || !p || p.length < 6) { showToast('请输入用户名和6位以上密码', 'error'); return; }
+  document.getElementById('btnRegister').disabled = true;
+  try {
+    const res = await fetch(API+'/auth/register', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({username: u, password: p, email: e}),
+    }).then(r=>r.json());
+    if (res.status === 'success') {
+      state.user = {user_id: res.user_id, username: res.username, plan: 'free', balance: 0};
+      localStorage.setItem('yubai_session', JSON.stringify(state.user));
+      showApp();
+      showToast('注册成功，获得3次免费试用', 'success');
+      loadHome();
+    } else {
+      document.getElementById('regErr').textContent = res.message || '注册失败';
+    }
+  } catch(e) {
+    document.getElementById('regErr').textContent = '网络错误';
+  }
+  document.getElementById('btnRegister').disabled = false;
+}
+
+function logout() {
+  state.user = null;
+  localStorage.removeItem('yubai_session');
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('appScreen').classList.remove('active');
+  showLogin();
+}
+
+// ====== APP UI ======
+function showApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('registerScreen').style.display = 'none';
+  document.getElementById('appScreen').classList.add('active');
+  updateUserInfo();
+}
+
+function updateUserInfo() {
+  if (!state.user) return;
+  document.getElementById('sidebarUsername').textContent = state.user.username;
+  document.getElementById('sidebarBalance').textContent = '¥' + (state.user.balance||0).toFixed(2);
+  document.getElementById('topbarBalance').textContent = '¥' + (state.user.balance||0).toFixed(2);
+}
+
+// ====== NAVIGATION ======
+function showModule(name, el) {
+  // Update nav active
+  document.querySelectorAll('.sidebar .nav-item').forEach(n=>n.classList.remove('active'));
+  if(el) el.classList.add('active');
+
+  // Hide workflow tabs
+  document.getElementById('workflowTabs').style.display = 'none';
+
+  const content = document.getElementById('contentArea');
+  if (name === 'home') {
+    document.getElementById('workflowTabs').style.display = 'flex';
+    renderStage(state.currentStage);
+  } else if (name === 'settings') {
+    renderSettings();
+  } else if (name === 'history') {
+    renderHistory();
+  } else if (name === 'account') {
+    renderAccount();
+  }
+}
+
+// ====== STAGE SWITCHING ======
+function switchStage(n) {
+  // Check trial
+  if (!state.user || state.user.plan === 'free') {
+    // free plan: stages 1-3 free, 4-6 need subscription
+    if (n >= 4) {
+      showToast('请订阅解锁全部功能（¥29/月）', 'info');
+    }
+  }
+  state.currentStage = n;
+  document.querySelectorAll('.wf-tab').forEach(t => {
+    const stage = parseInt(t.dataset.stage);
+    t.classList.toggle('active', stage === n);
+  });
+  renderStage(n);
+}
+
+function loadHome() {
+  document.getElementById('workflowTabs').style.display = 'flex';
+  renderStage(state.currentStage);
+}
+
+// ====== STAGE RENDERERS ======
+function renderStage(stage) {
+  const content = document.getElementById('contentArea');
+  const stages = {
+    1: renderStage1,
+    2: renderStage2,
+    3: renderStage3,
+    4: renderStage4,
+    5: renderStage5,
+    6: renderStage6,
+  };
+  if (stages[stage]) stages[stage](content);
+}
+
+function renderResultBox(content, result, extraHtml='') {
+  content.innerHTML = `
+    <div class="right-panel" style="flex:1">
+      <div class="result-box">
+        ${result ? `<div class="result-content">${result}</div><div class="result-actions">${extraHtml}</div>` : `<div class="result-placeholder"><div class="icon">🎬</div><h3>等待生成</h3><p>在左侧填写内容后点击"开始生成"</p></div>`}
+      </div>
+    </div>`;
+}
+
+// STAGE 1: Script Rewrite
+function renderStage1() {
+  const left = document.createElement('div');
+  left.className = 'left-panel';
+  left.innerHTML = `
+    <div class="panel-title">📝 剧本改写</div>
+    <div class="panel-desc">输入原始剧本，AI将为你改写成适合漫剧的分镜格式</div>
+    <div class="form-group">
+      <label class="form-label">原始剧本</label>
+      <textarea class="form-textarea" id="scriptInput" placeholder="在这里粘贴或输入你的剧本内容..." oninput="updateCharCount('scriptInput',5000)"></textarea>
+      <div class="char-count"><span id="scriptInputCount">0</span> / 5000</div>
+    </div>
+    <div class="hint-box">
+      <b>💡 提示</b><br>
+      剧本建议包含：场景描述、人物对白、动作指示。AI会自动分割成适合分镜的片段。
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage1()" id="btnRun1">
+      🚀 开始生成
+    </button>
+    <div class="usage-bar" id="usageBar1" style="display:none">
+      <div class="label">平台费：¥<span id="fee1">0.00</span></div>
+    </div>
+  `;
+
+  const right = document.createElement('div');
+  right.className = 'right-panel';
+  right.style.flex = '1';
+  const prev = state.stageData[1];
+  right.innerHTML = `
+    <div class="result-box">
+      ${prev ? `<div class="result-content">${prev}</div>` : `<div class="result-placeholder"><div class="icon">📝</div><h3>剧本改写结果</h3><p>输入剧本内容，点击"开始生成"</p></div>`}
+    </div>
+  `;
+
+  const content = document.getElementById('contentArea');
+  content.innerHTML = '';
+  content.appendChild(left);
+  content.appendChild(right);
+}
+
+function updateCharCount(id, max) {
+  const el = document.getElementById(id);
+  if (el) document.getElementById(id+'Count').textContent = el.value.length;
+}
+
+// STAGE 2: Style Definition
+function renderStage2() {
+  const left = document.createElement('div');
+  left.className = 'left-panel';
+  left.innerHTML = `
+    <div class="panel-title">🎨 风格定义</div>
+    <div class="panel-desc">定义你的漫剧视觉风格，AI将根据风格生成统一的画面</div>
+    <div class="form-group">
+      <label class="form-label">作品名称</label>
+      <input class="form-input" id="styleName" placeholder="如：星际穿越 · 科幻冒险" value="${state.stageData[1] ? state.stageData[1].split('\\n')[0].slice(0,30) : ''}">
+    </div>
+    <div class="form-group">
+      <label class="form-label">风格类型</label>
+      <select class="form-select" id="styleType">
+        <option value="anime">日漫风格</option>
+        <option value="western">美漫风格</option>
+        <option value="pixel">像素风格</option>
+        <option value="ink">水墨风格</option>
+        <option value="realistic">写实风格</option>
+        <option value="fantasy">奇幻风格</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">色彩基调</label>
+      <input class="form-input" id="styleColor" placeholder="如：冷色调、蓝紫色系">
+    </div>
+    <div class="form-group">
+      <label class="form-label">额外描述（可选）</label>
+      <textarea class="form-textarea" id="styleExtra" placeholder="描述你想要的画面氛围、情绪等..."></textarea>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage2()">🎨 定义风格</button>
+  `;
+
+  const right = document.createElement('div');
+  right.className = 'right-panel';
+  right.style.flex = '1';
+  const prev = state.stageData[2];
+  right.innerHTML = `
+    <div class="result-box">
+      ${prev ? `<div class="result-content">${prev}</div>` : `<div class="result-placeholder"><div class="icon">🎨</div><h3>风格定义结果</h3><p>设置参数后点击"定义风格"</p></div>`}
+    </div>
+  `;
+  const content = document.getElementById('contentArea');
+  content.innerHTML = '';
+  content.appendChild(left);
+  content.appendChild(right);
+}
+
+// STAGE 3: Character Design
+function renderStage3() {
+  const left = document.createElement('div');
+  left.className = 'left-panel';
+  left.innerHTML = `
+    <div class="panel-title">👤 人物设计</div>
+    <div class="panel-desc">描述你的角色外貌特征，AI将生成人物形象描述</div>
+    <div class="form-group">
+      <label class="form-label">角色名称</label>
+      <input class="form-input" id="charName" placeholder="如：林浩">
+    </div>
+    <div class="form-group">
+      <label class="form-label">性别</label>
+      <select class="form-select" id="charGender">
+        <option value="male">男</option>
+        <option value="female">女</option>
+        <option value="other">其他</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">外貌描述</label>
+      <textarea class="form-textarea" id="charDesc" placeholder="发型、脸型、身高、服装、特殊标记等..."></textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">性格特点</label>
+      <textarea class="form-textarea" id="charPersonality" placeholder="如：开朗、外冷内热、冷静理智..."></textarea>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage3()">👤 生成人物</button>
+  `;
+
+  const right = document.createElement('div');
+  right.className = 'right-panel';
+  right.style.flex = '1';
+  const prev = state.stageData[3];
+  const prevList = state.stageData['chars'] || [];
+  right.innerHTML = `
+    <div class="result-box">
+      ${prev ? `
+        <h4 style="color:var(--accent2);margin-bottom:12px">已生成角色</h4>
+        <div class="image-grid">${prevList.map(c=>`<div class="img-card"><div style="padding:12px"><b>${c.name}</b><p style="font-size:11px;color:var(--muted);margin-top:4px">${c.desc||''}</p></div></div>`).join('')}</div>
+        <div class="result-content" style="margin-top:16px">${prev}</div>
+      ` : `<div class="result-placeholder"><div class="icon">👤</div><h3>人物设计结果</h3><p>输入角色信息后点击"生成人物"</p></div>`}
+    </div>
+  `;
+  const content = document.getElementById('contentArea');
+  content.innerHTML = '';
+  content.appendChild(left);
+  content.appendChild(right);
+}
+
+// STAGE 4: Scene Design
+function renderStage4() {
+  const left = document.createElement('div');
+  left.className = 'left-panel';
+  left.innerHTML = `
+    <div class="panel-title">🏞️ 场景设计</div>
+    <div class="panel-desc">描述场景环境，AI将生成详细的场景设定</div>
+    <div class="form-group">
+      <label class="form-label">场景名称</label>
+      <input class="form-input" id="sceneName" placeholder="如：城市天台">
+    </div>
+    <div class="form-group">
+      <label class="form-label">场景类型</label>
+      <select class="form-select" id="sceneType">
+        <option value="indoor">室内</option>
+        <option value="outdoor">室外</option>
+        <option value="fantasy">幻想空间</option>
+        <option value="future">未来科技</option>
+        <option value="historical">历史场景</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">时间段</label>
+      <select class="form-select" id="sceneTime">
+        <option value="day">白天</option>
+        <option value="night">夜晚</option>
+        <option value="dawn">黎明/黄昏</option>
+        <option value="indoor_night">室内夜景</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">场景描述</label>
+      <textarea class="form-textarea" id="sceneDesc" placeholder="描述场景的具体环境、光线、氛围..."></textarea>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage4()">🏞️ 生成场景</button>
+  `;
+
+  const right = document.createElement('div');
+  right.className = 'right-panel';
+  right.style.flex = '1';
+  const prev = state.stageData[4];
+  right.innerHTML = `
+    <div class="result-box">
+      ${prev ? `<div class="result-content">${prev}</div>` : `<div class="result-placeholder"><div class="icon">🏞️</div><h3>场景设计结果</h3><p>输入场景信息后点击"生成场景"</p></div>`}
+    </div>
+  `;
+  const content = document.getElementById('contentArea');
+  content.innerHTML = '';
+  content.appendChild(left);
+  content.appendChild(right);
+}
+
+// STAGE 5: Storyboard
+function renderStage5() {
+  const left = document.createElement('div');
+  left.className = 'left-panel';
+  left.innerHTML = `
+    <div class="panel-title">🎬 分镜生成</div>
+    <div class="panel-desc">基于剧本和前面的设定，生成完整的分镜脚本</div>
+    <div class="hint-box">
+      <b>📋 当前进度</b><br>
+      剧本：${state.stageData[1] ? '✅' : '❌'} &nbsp;
+      风格：${state.stageData[2] ? '✅' : '❌'} &nbsp;
+      角色：${state.stageData[3] ? '✅' : '❌'} &nbsp;
+      场景：${state.stageData[4] ? '✅' : '❌'}
+    </div>
+    <div class="form-group">
+      <label class="form-label">分镜数量</label>
+      <select class="form-select" id="shotCount">
+        <option value="6">6 个分镜</option>
+        <option value="9">9 个分镜</option>
+        <option value="12">12 个分镜</option>
+        <option value="16">16 个分镜</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">画幅比例</label>
+      <select class="form-select" id="aspectRatio">
+        <option value="16:9">16:9 宽屏</option>
+        <option value="9:16">9:16 竖屏</option>
+        <option value="1:1">1:1 方形</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage5()">🎬 生成分镜</button>
+  `;
+
+  const right = document.createElement('div');
+  right.className = 'right-panel';
+  right.style.flex = '1';
+  const prev = state.stageData[5];
+  right.innerHTML = `
+    <div class="result-box">
+      ${prev ? `<div class="result-content">${prev}</div>` : `<div class="result-placeholder"><div class="icon">🎬</div><h3>分镜结果</h3><p>确保前4个阶段已完成，然后点击"生成分镜"</p></div>`}
+    </div>
+  `;
+  const content = document.getElementById('contentArea');
+  content.innerHTML = '';
+  content.appendChild(left);
+  content.appendChild(right);
+}
+
+// STAGE 6: Video Prompts
+function renderStage6() {
+  const left = document.createElement('div');
+  left.className = 'left-panel';
+  left.innerHTML = `
+    <div class="panel-title">🎥 视频提示词</div>
+    <div class="panel-desc">将分镜转化为小云雀/Runway可用的视频生成提示词</div>
+    <div class="hint-box">
+      <b>🔧 视频生成工具</b><br>
+      推荐使用 <b>小云雀（Volcengine）</b>，成本低效果好
+    </div>
+    <div class="form-group">
+      <label class="form-label">视频生成工具</label>
+      <select class="form-select" id="videoTool">
+        <option value="xiaoyunque">小云雀（推荐）</option>
+        <option value="runway">Runway</option>
+        <option value="pika">Pika</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">时长</label>
+      <select class="form-select" id="videoDuration">
+        <option value="5">5 秒</option>
+        <option value="10">10 秒</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" style="width:100%" onclick="runStage6()">🎥 生成提示词</button>
+  `;
+
+  const right = document.createElement('div');
+  right.className = 'right-panel';
+  right.style.flex = '1';
+  const prev = state.stageData[6];
+  right.innerHTML = `
+    <div class="result-box">
+      ${prev ? `<div class="result-content">${prev}</div>` : `<div class="result-placeholder"><div class="icon">🎥</div><h3>视频提示词</h3><p>分镜完成后，生成各镜头的视频提示词</p></div>`}
+    </div>
+  `;
+  const content = document.getElementById('contentArea');
+  content.innerHTML = '';
+  content.appendChild(left);
+  content.appendChild(right);
+}
+
+// ====== API CALLS ======
+async function callAI(system, prompt, model='abab5.5-chat') {
+  const apiKey = state.apiKeys.minimax;
+  if (!apiKey) throw new Error('请先在设置中配置 MiniMax API Key');
+  const res = await fetch('https://api.minimax.chat/v1/text/chatcompletion_v2', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + apiKey},
+    body: JSON.stringify({
+      model: model,
+      messages: [{role:'system',content:system},{role:'user',content:prompt}],
+      max_tokens: 2000,
+      temperature: 0.7,
+    }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error?.message || 'API调用失败');
+  return data.choices?.[0]?.message?.content || '';
+}
+
+async function deductBalance(amount) {
+  if (!state.user) return;
+  try {
+    const res = await fetch(API+'/usage/deduct', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: state.user.user_id, amount: Math.round(amount * 100)}),
+    }).then(r=>r.json());
+    if (res.status === 'success') {
+      state.user.balance = res.balance;
+      updateUserInfo();
+      return true;
+    }
+  } catch {}
+  return false;
+}
+
+async function reportUsage(stage, provider, callCount, cost, revenue) {
+  if (!state.user) return;
+  try {
+    await fetch(API+'/usage/report', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        user_id: state.user.user_id,
+        stage: ['剧本改写','风格定义','人物设计','场景设计','分镜生成','视频提示词'][stage-1],
+        provider: provider,
+        call_count: callCount,
+        cost: cost,
+        revenue: revenue,
+      }),
+    });
+  } catch {}
+}
+
+// ====== STAGE RUNNERS ======
+async function runStage1() {
+  const input = document.getElementById('scriptInput').value.trim();
+  if (!input) { showToast('请输入剧本内容', 'error'); return; }
+  if (!checkAuth()) return;
+  if (!state.apiKeys.minimax) { showToast('请先配置 MiniMax API Key', 'error'); showModule('settings'); return; }
+
+  setLoading('btnRun1', true);
+  try {
+    const system = '你是一个专业的AI漫剧编剧。你需要将用户提供的原始剧本改写成适合分镜制作的格式。每个分镜包含：镜头编号、场景描述、人物动作、对白内容。用中文输出。';
+    const prompt = `请将以下剧本改写成AI漫剧分镜格式，要求：\n1. 将剧本分成6-12个分镜\n2. 每个分镜包含：镜头号、场景描述、人物动作、对白\n3. 保持原剧本的核心情节\n4. 格式清晰，便于后续制作\n\n剧本内容：\n${input}`;
+    const result = await callAI(system, prompt);
+    state.stageData[1] = result;
+    renderResultBox(document.getElementById('contentArea').querySelector('.right-panel'), result, '<button class="btn btn-outline btn-sm" onclick="copyResult(1)">📋 复制</button>');
+    await reportUsage(1, 'MiniMax', 1, 0.01, 0.01 * PLATFORM_FEE);
+    showToast('剧本改写完成', 'success');
+  } catch(e) {
+    showToast('生成失败：' + e.message, 'error');
+  }
+  setLoading('btnRun1', false);
+}
+
+async function runStage2() {
+  const name = document.getElementById('styleName').value.trim();
+  const type = document.getElementById('styleType').value;
+  const color = document.getElementById('styleColor').value.trim();
+  const extra = document.getElementById('styleExtra').value.trim();
+  if (!name) { showToast('请输入作品名称', 'error'); return; }
+  if (!checkAuth()) return;
+  if (!state.apiKeys.minimax) { showToast('请先配置 MiniMax API Key', 'error'); showModule('settings'); return; }
+
+  setLoading(null, true);
+  try {
+    const system = '你是一个专业的AI漫剧视觉风格设计师。根据用户需求定义完整的视觉风格体系。';
+    const prompt = `为作品"${name}"定义视觉风格：\n风格类型：${type}\n色彩基调：${color||'未指定'}\n额外描述：${extra||'无'}\n\n请输出：\n1. 整体视觉风格描述\n2. 色彩方案\n3. 画面特点\n4. 适合的渲染风格关键词`;
+    const result = await callAI(system, prompt);
+    state.stageData[2] = result;
+    renderResultBox(document.getElementById('contentArea').querySelector('.right-panel'), result);
+    await reportUsage(2, 'MiniMax', 1, 0.01, 0.01 * PLATFORM_FEE);
+    showToast('风格定义完成', 'success');
+  } catch(e) {
+    showToast('生成失败：' + e.message, 'error');
+  }
+  setLoading(null, false);
+}
+
+async function runStage3() {
+  const name = document.getElementById('charName').value.trim();
+  const gender = document.getElementById('charGender').value;
+  const desc = document.getElementById('charDesc').value.trim();
+  const personality = document.getElementById('charPersonality').value.trim();
+  if (!name || !desc) { showToast('请输入角色名称和描述', 'error'); return; }
+  if (!checkAuth()) return;
+  if (!state.apiKeys.minimax) { showToast('请先配置 MiniMax API Key', 'error'); showModule('settings'); return; }
+
+  setLoading(null, true);
+  try {
+    const system = '你是一个专业的AI漫剧角色设计师。根据描述生成详细的人物形象设定。';
+    const prompt = `为以下角色生成详细的人物设计描述：\n角色名：${name}\n性别：${gender}\n外貌描述：${desc}\n性格特点：${personality||'未指定'}\n\n请输出：\n1. 详细的外貌形象描述（适用于AI绘图）\n2. 服装设定\n3. 标志性特征\n4. 表情和肢体语言特点`;
+    const result = await callAI(system, prompt);
+    state.stageData[3] = result;
+    if (!state.stageData['chars']) state.stageData['chars'] = [];
+    state.stageData['chars'].push({name, desc: result.slice(0,100)});
+    renderStage3();
+    await reportUsage(3, 'MiniMax', 1, 0.01, 0.01 * PLATFORM_FEE);
+    showToast('人物设计完成', 'success');
+  } catch(e) {
+    showToast('生成失败：' + e.message, 'error');
+  }
+  setLoading(null, false);
+}
+
+async function runStage4() {
+  const name = document.getElementById('sceneName').value.trim();
+  const type = document.getElementById('sceneType').value;
+  const time = document.getElementById('sceneTime').value;
+  const desc = document.getElementById('sceneDesc').value.trim();
+  if (!name || !desc) { showToast('请输入场景名称和描述', 'error'); return; }
+  if (!checkAuth()) return;
+  if (!state.apiKeys.minimax) { showToast('请先配置 MiniMax API Key', 'error'); showModule('settings'); return; }
+
+  setLoading(null, true);
+  try {
+    const system = '你是一个专业的AI漫剧场景设计师。根据描述生成详细的场景设定。';
+    const prompt = `为以下场景生成详细设定：\n场景名：${name}\n场景类型：${type}\n时间段：${time}\n描述：${desc}\n\n请输出：\n1. 环境详细描述（适用于AI绘图）\n2. 光线和氛围\n3. 色彩关键词（用于AI绘图）\n4. 镜头建议`;
+    const result = await callAI(system, prompt);
+    state.stageData[4] = result;
+    renderResultBox(document.getElementById('contentArea').querySelector('.right-panel'), result);
+    await reportUsage(4, 'MiniMax', 1, 0.01, 0.01 * PLATFORM_FEE);
+    showToast('场景设计完成', 'success');
+  } catch(e) {
+    showToast('生成失败：' + e.message, 'error');
+  }
+  setLoading(null, false);
+}
+
+async function runStage5() {
+  if (!state.stageData[1]) { showToast('请先完成剧本改写（第1步）', 'error'); return; }
+  if (!checkAuth()) return;
+  if (!state.apiKeys.minimax) { showToast('请先配置 MiniMax API Key', 'error'); showModule('settings'); return; }
+
+  const count = document.getElementById('shotCount').value;
+  const ratio = document.getElementById('aspectRatio').value;
+
+  setLoading(null, true);
+  try {
+    const system = '你是一个专业的AI漫剧分镜师。根据剧本和前面的设定，生成完整的分镜脚本。';
+    const prompt = `基于以下素材，生成分镜脚本：\n\n剧本：\n${state.stageData[1]}\n\n风格：\n${state.stageData[2]||''}\n\n角色：\n${state.stageData[3]||''}\n\n场景：\n${state.stageData[4]||''}\n\n要求：\n- 生成${count}个分镜\n- 画幅比例：${ratio}\n- 每个分镜包含：镜头号、画面描述、对白、镜头运动`;
+    const result = await callAI(system, prompt);
+    state.stageData[5] = result;
+    renderResultBox(document.getElementById('contentArea').querySelector('.right-panel'), result, '<button class="btn btn-outline btn-sm" onclick="copyResult(5)">📋 复制</button>');
+    await reportUsage(5, 'MiniMax', 1, 0.01, 0.01 * PLATFORM_FEE);
+    showToast('分镜生成完成', 'success');
+  } catch(e) {
+    showToast('生成失败：' + e.message, 'error');
+  }
+  setLoading(null, false);
+}
+
+async function runStage6() {
+  if (!state.stageData[5]) { showToast('请先完成前5步', 'error'); return; }
+  if (!checkAuth()) return;
+
+  const tool = document.getElementById('videoTool').value;
+  if (!state.apiKeys.volcengine && tool !== 'runway') { showToast('请先配置 Volcengine AK/SK', 'error'); showModule('settings'); return; }
+
+  setLoading(null, true);
+  try {
+    const system = `你是一个专业的AI视频提示词工程师。将分镜描述转化为${tool==='xiaoyunque'?'小云雀（Volcengine）':tool==='runway'?'Runway':tool==='pika'?'Pika':''}的视频生成提示词。`;
+    const prompt = `将以下分镜转化为视频生成提示词：\n\n分镜：\n${state.stageData[5]}\n\n工具：${tool}\n\n请为每个镜头输出1-2句英文提示词，适合对应工具使用。格式：\n[镜头1] 英文提示词\n[镜头2] 英文提示词\n...`;
+    const result = await callAI(system, prompt);
+    state.stageData[6] = result;
+    renderResultBox(document.getElementById('contentArea').querySelector('.right-panel'), result, '<button class="btn btn-outline btn-sm" onclick="copyResult(6)">📋 复制</button>');
+    await reportUsage(6, tool === 'xiaoyunque' ? 'Volcengine' : tool, 1, 0.05, 0.05 * PLATFORM_FEE);
+    showToast('视频提示词生成完成', 'success');
+  } catch(e) {
+    showToast('生成失败：' + e.message, 'error');
+  }
+  setLoading(null, false);
+}
+
+// ====== SETTINGS ======
+function renderSettings() {
+  const content = document.getElementById('contentArea');
+  content.innerHTML = `
+    <div class="right-panel" style="flex:1;max-width:700px">
+      <div class="settings-section">
+        <h3>🔑 MiniMax API Key</h3>
+        <div class="hint-box">用于调用 MiniMax 大模型生成剧本、风格、人物、分镜等文本内容。<a href="https://www.minimax.chat/" target="_blank" style="color:var(--accent2)">获取Key →</a></div>
+        <div class="form-group">
+          <label class="form-label">API Key</label>
+          <input class="form-input" id="minimaxKey" type="password" placeholder="sk-xxxxxxxx" value="${state.apiKeys.minimax||''}">
+        </div>
+        <button class="btn btn-primary" onclick="saveMinimaxKey()">保存</button>
+      </div>
+      <div class="settings-section">
+        <h3>🔥 火山引擎 AK/SK</h3>
+        <div class="hint-box">用于调用即梦（图片生成）和小云雀（视频生成）。<a href="https://console.volcengine.com/" target="_blank" style="color:var(--accent2)">获取Key →</a></div>
+        <div class="form-group">
+          <label class="form-label">Access Key</label>
+          <input class="form-input" id="volcAK" placeholder="AKXXXXXXXX" value="${state.apiKeys.volcAK||''}">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Secret Key</label>
+          <input class="form-input" id="volcSK" type="password" placeholder="SKXXXXXXXX" value="${state.apiKeys.volcSK||''}">
+        </div>
+        <button class="btn btn-primary" onclick="saveVolcKeys()">保存</button>
+      </div>
+      <div class="settings-section">
+        <h3>💰 平台费用设置</h3>
+        <div class="hint-box">当前平台费率：成本 × ${PLATFORM_FEE} 倍</div>
+        <div class="form-group">
+          <label class="form-label">平台费率倍数</label>
+          <input class="form-input" type="number" value="${PLATFORM_FEE}" step="0.1" min="1.0" id="platformFee" disabled>
+          <div class="hint">（此设置由平台统一管理，不可自行修改）</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function saveMinimaxKey() {
+  const key = document.getElementById('minimaxKey').value.trim();
+  state.apiKeys.minimax = key;
+  localStorage.setItem('yubai_apikeys', JSON.stringify(state.apiKeys));
+  showToast('MiniMax API Key 已保存', 'success');
+}
+
+function saveVolcKeys() {
+  const ak = document.getElementById('volcAK').value.trim();
+  const sk = document.getElementById('volcSK').value.trim();
+  state.apiKeys.volcAK = ak;
+  state.apiKeys.volcSK = sk;
+  localStorage.setItem('yubai_apikeys', JSON.stringify(state.apiKeys));
+  showToast('火山引擎 AK/SK 已保存', 'success');
+}
+
+// ====== HISTORY ======
+function renderHistory() {
+  const content = document.getElementById('contentArea');
+  const history = JSON.parse(localStorage.getItem('yubai_history') || '[]');
+  if (!history.length) {
+    content.innerHTML = `<div class="right-panel" style="flex:1;text-align:center;padding:60px;color:var(--muted)"><div style="font-size:48px;margin-bottom:16px">📜</div><h3>暂无生成历史</h3><p style="margin-top:8px">开始使用工作台后，这里会显示你的创作记录</p></div>`;
+    return;
+  }
+  content.innerHTML = `<div class="right-panel" style="flex:1">
+    <div class="result-box">
+      <h4 style="color:var(--accent2);margin-bottom:16px">📜 生成历史</h4>
+      ${history.map((h,i)=>`<div style="padding:12px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center">
+        <div><b>${h.stage}</b><span style="font-size:12px;color:var(--muted);margin-left:8px">${h.time}</span></div>
+        <button class="btn btn-outline btn-sm" onclick="loadHistory(${i})">查看</button>
+      </div>`).join('')}
+    </div>
+  </div>`;
+}
+
+function loadHistory(idx) {
+  const history = JSON.parse(localStorage.getItem('yubai_history') || '[]');
+  const item = history[idx];
+  if (!item) return;
+  state.stageData[item.stageNum] = item.result;
+  if (item.stageNum <= 3) switchStage(item.stageNum);
+  else showModule('home');
+  showToast('已加载历史记录', 'info');
+}
+
+// ====== ACCOUNT ======
+async function renderAccount() {
+  const content = document.getElementById('contentArea');
+  if (!state.user) return;
+
+  // Refresh balance
+  try {
+    const res = await fetch(API+'/payment/check/'+state.user.user_id).then(r=>r.json());
+    state.user.balance = res.balance || 0;
+    state.user.plan = res.plan || state.user.plan;
+    localStorage.setItem('yubai_session', JSON.stringify(state.user));
+    updateUserInfo();
+  } catch {}
+
+  content.innerHTML = `<div class="right-panel" style="flex:1;max-width:600px">
+    <div class="settings-section">
+      <h3>👤 账户信息</h3>
+      <div class="detail-row" style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><span>用户名</span><span style="font-weight:600">${state.user.username}</span></div>
+      <div class="detail-row" style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><span>用户ID</span><span style="font-weight:600">#${state.user.user_id}</span></div>
+      <div class="detail-row" style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border)"><span>当前套餐</span><span class="balance-tag">${state.user.plan==='yearly'?'年卡会员':state.user.plan==='monthly'?'月卡会员':'免费试用'}</span></div>
+      <div class="detail-row" style="display:flex;justify-content:space-between;padding:10px 0"><span>账户余额</span><span style="font-weight:700;font-size:18px;color:var(--green)">¥${(state.user.balance||0).toFixed(2)}</span></div>
+    </div>
+    <div class="settings-section">
+      <h3>💳 充值套餐</h3>
+      <div class="hint-box" style="margin-bottom:16px">
+        <b>订阅会员 ¥29/月</b> 或 <b>¥199/年</b>，享全部6个模块无限使用<br>
+        余额不足时也可单独购买AI调用次数
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div style="background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center">
+          <div style="font-size:24px;margin-bottom:8px">⏱️</div>
+          <h4 style="margin-bottom:4px">月卡会员</h4>
+          <div style="font-size:28px;font-weight:700;color:var(--green)">¥29</div>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 12px">30天有效</div>
+          <button class="btn btn-primary" style="width:100%" onclick="buyPlan('monthly')">立即购买</button>
+        </div>
+        <div style="background:var(--card2);border:2px solid var(--accent);border-radius:12px;padding:20px;text-align:center">
+          <div style="font-size:10px;background:var(--accent);color:#fff;padding:2px 8px;border-radius:10px;display:inline-block;margin-bottom:8px">推荐</div>
+          <div style="font-size:24px;margin-bottom:8px">📅</div>
+          <h4 style="margin-bottom:4px">年卡会员</h4>
+          <div style="font-size:28px;font-weight:700;color:var(--green)">¥199</div>
+          <div style="font-size:12px;color:var(--muted);margin:4px 0 12px">365天有效（省¥149）</div>
+          <button class="btn btn-primary" style="width:100%" onclick="buyPlan('yearly')">立即购买</button>
+        </div>
+      </div>
+    </div>
+    <div class="settings-section">
+      <h3>⚙️ 其他设置</h3>
+      <button class="btn btn-outline" onclick="logout()" style="margin-right:10px">退出登录</button>
+    </div>
+  </div>`;
+}
+
+async function buyPlan(plan) {
+  if (!state.user) return;
+  // For now, show WeChat QR code
+  try {
+    const res = await fetch(API+'/payment/create', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: state.user.user_id, plan: plan}),
+    }).then(r=>r.json());
+    if (res.code_url) {
+      showToast('支付链接已生成，请在浏览器中打开支付', 'info');
+      window.electronAPI && window.electronAPI.openExternal(res.code_url);
+    }
+  } catch(e) {
+    showToast('获取支付失败，请稍后重试', 'error');
+  }
+}
+
+// ====== UTILITIES ======
+function checkAuth() {
+  if (!state.user) { showToast('请先登录', 'error'); return false; }
+  if (state.user.plan === 'free') {
+    // Check trial
+    showToast('免费用户可使用前3个模块，请订阅解锁', 'info');
+  }
+  return true;
+}
+
+function setLoading(id, loading) {
+  state.isLoading = loading;
+  const btn = id ? document.getElementById(id) : null;
+  if (btn) { btn.disabled = loading; btn.textContent = loading ? '生成中...' : btn.textContent.replace('生成中...','').trim(); }
+}
+
+function copyResult(stageNum) {
+  const text = state.stageData[stageNum];
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => showToast('已复制到剪贴板', 'success')).catch(() => showToast('复制失败', 'error'));
+}
+
+function showToast(msg, type='info') {
+  const toast = document.getElementById('toast');
+  toast.textContent = msg;
+  toast.className = 'toast ' + type + ' show';
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+async function checkUpdate() {
+  if (window.electronAPI) {
+    await window.electronAPI.checkForUpdates();
+  }
+}
+</script>
+</body>
+</html>
