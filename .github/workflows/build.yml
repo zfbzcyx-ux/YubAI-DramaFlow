@@ -74,10 +74,11 @@ jobs:
         continue-on-error: true
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           draft: false
           prerelease: false
+          overwrite: true
           generate_release_notes: true
           files: artifacts/**/*
         env:
