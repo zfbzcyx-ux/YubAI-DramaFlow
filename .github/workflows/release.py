@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Upload Electron artifacts to GitHub Release."""
-import os
 import json
-import subprocess
-import sys
+import os
+import urllib.parse
 import urllib.request
 
 GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
@@ -29,23 +28,22 @@ def upload_asset(release_id, filepath):
     filename = os.path.basename(filepath)
     filesize = os.path.getsize(filepath)
     print(f"Uploading {filename} ({filesize//1024//1024}MB)...")
-    
-    url = f'https://uploads.github.com/repos/{REPO}/releases/{release_id}/assets?name={urllib.parse.quote(filename)}'
+
+    encoded_name = urllib.parse.quote(filename)
+    url = f'https://uploads.github.com/repos/{REPO}/releases/{release_id}/assets?name={encoded_name}'
     headers = {
         'Authorization': f'token {GITHUB_TOKEN}',
         'Content-Type': 'application/octet-stream',
         'Content-Length': str(filesize),
     }
-    
+
     with open(filepath, 'rb') as f:
         data = f.read()
-    
+
     req = urllib.request.Request(url, method='POST', headers=headers, data=data)
     with urllib.request.urlopen(req, timeout=300) as r:
         result = json.loads(r.read())
-        print(f"  ✅ {filename} -> {result.get('browser_download_url', 'OK')}")
-
-import urllib.parse
+        print(f"  OK {filename}")
 
 # Find all installer files
 extensions = ['.AppImage', '.exe', '.dmg']
@@ -62,14 +60,12 @@ for f in found:
 
 # Find or create release
 if not RELEASE_ID:
-    # Check if release exists
     releases = gh_api('GET', f'/repos/{REPO}/releases')
     existing = [r for r in releases if r['tag_name'] == VERSION]
     if existing:
         RELEASE_ID = existing[0]['id']
         print(f"Found existing release {RELEASE_ID}")
     else:
-        # Create new release
         release = gh_api('POST', f'/repos/{REPO}/releases', {
             'tag_name': VERSION,
             'name': f'YubAI DramaFlow {VERSION}',
@@ -79,11 +75,13 @@ if not RELEASE_ID:
         RELEASE_ID = release['id']
         print(f"Created release {RELEASE_ID}")
 
+print(f"Uploading to release ID: {RELEASE_ID}")
+
 # Upload all found files
 for filepath in found:
     try:
         upload_asset(RELEASE_ID, filepath)
     except Exception as e:
-        print(f"  ❌ {os.path.basename(filepath)}: {e}")
+        print(f"  FAIL {os.path.basename(filepath)}: {e}")
 
 print("\nDone!")
