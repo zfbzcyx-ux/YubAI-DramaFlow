@@ -1,0 +1,84 @@
+name: Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (e.g., v1.0.0)'
+        required: false
+        type: string
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            artifact: YubAI-DramaFlow-${{ github.ref_name }}.AppImage
+          - os: windows-2022
+            platform: win
+            artifact: YubAI-DramaFlow-Setup-${{ github.ref_name }}.exe
+          - os: macos-14
+            platform: mac
+            artifact: YubAI-DramaFlow-${{ github.ref_name }}.dmg
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build ${{ matrix.platform }}
+        run: npm run build -- --${{ matrix.platform }}
+        env:
+          ELECTRON_CACHE: ${{ runner.temp }}/electron_cache
+          ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron_builder_cache
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}-artifact
+          path: dist/**/*
+          retention-days: 5
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List artifacts
+        run: ls -la artifacts/
+
+      - name: Upload to Alibaba Cloud
+        run: |
+          curl -T artifacts/linux-artifact/*.AppImage http://39.107.251.193:8000/client/YubAI-DramaFlow-${{ github.ref_name }}.AppImage
+        continue-on-error: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: artifacts/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
