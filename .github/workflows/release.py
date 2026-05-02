@@ -45,7 +45,7 @@ def upload_asset(release_id, filepath):
         result = json.loads(r.read())
         print(f"  OK {filename}")
 
-# Find all installer files
+# Find all installer files (skip blockmap)
 extensions = ['.AppImage', '.exe', '.dmg']
 found = []
 for root, dirs, files in os.walk('artifacts'):

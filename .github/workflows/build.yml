@@ -4,12 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version tag (e.g., v1.0.0)'
-        required: false
-        type: string
 
 jobs:
   build:
@@ -18,13 +12,10 @@ jobs:
         include:
           - os: ubuntu-22.04
             platform: linux
-            artifact: YubAI-DramaFlow-${{ github.ref_name }}.AppImage
           - os: windows-2022
             platform: win
-            artifact: YubAI-DramaFlow-Setup-${{ github.ref_name }}.exe
           - os: macos-14
             platform: mac
-            artifact: YubAI-DramaFlow-${{ github.ref_name }}.dmg
 
     runs-on: ${{ matrix.os }}
 
@@ -39,10 +30,10 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm ci --registry https://registry.npmmirror.com
 
       - name: Build ${{ matrix.platform }}
-        run: npm run build -- --${{ matrix.platform }}
+        run: npm run build -- --${{ matrix.platform }} --registry https://registry.npmmirror.com
         env:
           ELECTRON_CACHE: ${{ runner.temp }}/electron_cache
           ELECTRON_BUILDER_CACHE: ${{ runner.temp }}/electron_builder_cache
@@ -51,15 +42,16 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.platform }}-artifact
-          path: dist/**/*
-          retention-days: 5
+          path: |
+            dist/**/*
+            !dist/**/*.blockmap
+          retention-days: 1
 
   release:
     needs: build
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'workflow_dispatch'
 
     steps:
       - name: Checkout
@@ -70,7 +62,7 @@ jobs:
         with:
           path: artifacts
 
-      - name: List artifacts recursively
+      - name: List artifacts
         run: find artifacts/ -type f | head -30
 
       - name: Upload to Alibaba Cloud
